@@ -12,7 +12,7 @@ import random
 class TSPInteractiveGUI:
     def __init__(self, master):
         self.master = master
-        master.title("Интерактивная задача коммивояжера")
+        master.title("Интерактивная задача коммивояжера (МБС)")
 
         self.graph = nx.DiGraph()
         self.vertices = {}
@@ -31,7 +31,7 @@ class TSPInteractiveGUI:
         self.last_edge = None
         self.edge_history = []
 
-        # Основной фрейм для размещения холста и матрицы
+
         self.main_frame = ttk.Frame(master)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -44,7 +44,7 @@ class TSPInteractiveGUI:
         self.selected_vertices = []
 
     def create_graph_canvas(self, master):
-        """Создает холст для интерактивного рисования графа."""
+        """Создает поле для интерактивного рисования графа."""
         self.canvas_width = 600
         self.canvas_height = 600
 
@@ -75,14 +75,11 @@ class TSPInteractiveGUI:
             return
 
         max_vertex_length = max(len(v) for v in vertices)
-        # Разворачиваем порядок вершин только для заголовка
         header = " " * (max_vertex_length + 1) + "".join([f"{v:<4}" for v in reversed(vertices)]) + "\n"
         self.matrix_text.insert("1.0", header)
 
-    # Итерируем в прямом порядке для правильного отображения строк
         for v1 in vertices:
             row = f"{v1:<{max_vertex_length}} "
-            # Итерируем в прямом порядке столбцов
             for v2 in reversed(vertices):
                 try:
                     weight = self.graph[v1][v2]['weight']
@@ -98,14 +95,14 @@ class TSPInteractiveGUI:
         control_frame = ttk.Frame(master)
         control_frame.pack(padx=10, pady=5, fill=tk.X)
 
-        delete_vertex_button = ttk.Button(control_frame, text="Удалить последнюю вершину", command=self.delete_last_vertex)
-        delete_vertex_button.pack(side=tk.LEFT, padx=5)
-
-        run_button = ttk.Button(control_frame, text="Найти лучший путь", command=self.run_all_nearest_neighbor)
+        run_button = ttk.Button(control_frame, text="Найти кратчайший путь", command=self.run_all_nearest_neighbor)
         run_button.pack(side=tk.LEFT, padx=5)
 
-        clear_button = ttk.Button(control_frame, text="Очистить граф", command=self.clear_graph)
+        clear_button = ttk.Button(control_frame, text="Очистить поле", command=self.clear_graph)
         clear_button.pack(side=tk.LEFT, padx=5)
+
+        delete_vertex_button = ttk.Button(control_frame, text="Удалить последнюю вершину", command=self.delete_last_vertex)
+        delete_vertex_button.pack(side=tk.LEFT, padx=5)
 
         delete_path_button = ttk.Button(control_frame, text="Удалить последнее ребро", command=self.delete_last_edge)
         delete_path_button.pack(side=tk.LEFT, padx=5)
@@ -123,7 +120,6 @@ class TSPInteractiveGUI:
         self.set_start_vertex_button = ttk.Button(control_frame, text="Установить", command=self.set_start_vertex)
         self.set_start_vertex_button.pack(side=tk.LEFT, padx=5)
 
-        # Кнопка загрузки таблицы
         load_matrix_button = ttk.Button(control_frame, text="Загрузить матрицу из таблицы", command=self.load_matrix_from_table)
         load_matrix_button.pack(side=tk.LEFT, padx=5)
 
@@ -185,7 +181,7 @@ class TSPInteractiveGUI:
         self.update_distance_matrix()
 
     def get_midpoint_coordinates(self, x1, y1, ctrl_x1, ctrl_y1, ctrl_x2, ctrl_y2, x2, y2):
-        """Вычисляет координаты "середины" линии Безье."""
+        """Вычисляет координаты середины линии."""
         mid_x = (x1 + x2 + ctrl_x1 + ctrl_x2) / 4
         mid_y = (y1 + y2 + ctrl_y1 + ctrl_y2) / 4
         return mid_x, mid_y
@@ -202,7 +198,7 @@ class TSPInteractiveGUI:
         return arrow_id
 
     def draw_edge(self, v1, v2, weight, edge_index):
-      """Рисует ребро между двумя вершинами с учетом смещения для параллельных ребер."""
+      """Рисует ребро между двумя вершинами."""
       x1, y1 = self.vertices[v1]["x"], self.vertices[v1]["y"]
       x2, y2 = self.vertices[v2]["x"], self.vertices[v2]["y"]
 
@@ -252,7 +248,7 @@ class TSPInteractiveGUI:
         weight = None
         while weight is None:
             try:
-                weight_str = tk.simpledialog.askstring("Ввод веса", "Введите вес ребра (целое число):")
+                weight_str = tk.simpledialog.askstring("Ввод веса", "Введите вес ребра:")
                 if weight_str is None:
                     return None
                 weight = int(weight_str)
@@ -260,7 +256,7 @@ class TSPInteractiveGUI:
                     messagebox.showerror("Ошибка ввода", "Вес должен быть положительным числом.")
                     weight = None
             except ValueError:
-                messagebox.showerror("Ошибка ввода", "Пожалуйста, введите целое число.")
+                messagebox.showerror("Ошибка ввода", "Вес должен быть целым числом.")
                 weight = None
         return weight
 
@@ -292,13 +288,10 @@ class TSPInteractiveGUI:
                     del self.edges[(v1, v2)]
                 if self.graph.has_edge(v1, v2):
                     self.graph.remove_edge(v1, v2)
-            # Удаление ребер из истории
             self.edge_history = [(v1, v2) for v1, v2 in self.edge_history if v1 != vertex_to_delete and v2 != vertex_to_delete]
-            # Удаление графических элементов вершины
             self.canvas.delete(self.vertices[vertex_to_delete]["oval_id"])
             self.canvas.delete(self.vertices[vertex_to_delete]["text_id"])
 
-            # Удаление вершины из словаря и графа
             del self.vertices[vertex_to_delete]
             self.graph.remove_node(vertex_to_delete)
             self.update_distance_matrix()
@@ -338,7 +331,7 @@ class TSPInteractiveGUI:
         self.update_distance_matrix()
 
     def run_all_nearest_neighbor(self):
-        """Перебирает все вершины как стартовые и находит лучший путь."""
+        """(Мод) Перебирает все вершины как стартовые и находит лучший путь."""
         graph_copy = self.graph.copy()
         edges_copy = self.edges.copy()
         edge_objects_copy = self.edge_objects.copy()
@@ -383,7 +376,7 @@ class TSPInteractiveGUI:
 
             self.draw_graph_with_path()
         else:
-            messagebox.showerror("Ошибка", "Не удалось найти гамильтонов цикл для всех стартовых вершин.")
+            messagebox.showerror("Ошибка", "Некорректный граф.")
 
     def draw_graph_with_path(self):
         """Отображает граф с найденным путем."""
@@ -445,7 +438,7 @@ class TSPInteractiveGUI:
         self.selected_vertices = []
 
     def load_matrix_from_table(self):
-        """Загружает матрицу расстояний из таблицы (CSV)."""
+        """Загружает матрицу расстояний из таблицы CSV."""
         filename = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
         if filename:
             try:
@@ -463,18 +456,16 @@ class TSPInteractiveGUI:
         """Загружает граф из матрицы расстояний."""
         self.clear_graph()
 
-        # Создаем вершины
         vertices = vertices[::-1]
         for vertex in vertices:
             x = random.randint(50, self.canvas_width - 50)
             y = random.randint(50, self.canvas_height - 50)
-            self.add_vertex_from_matrix(vertex, x, y)  # Используем отдельный метод
+            self.add_vertex_from_matrix(vertex, x, y)
 
-        # Создаем ребра
         for v1 in vertices:
             for v2 in vertices:
                 if v1 != v2:
-                    weight = distances[v2][v1]  # Исправлено: Используем v2 как ключ первого уровня
+                    weight = distances[v2][v1]
                     if not isinstance(weight, str) and not math.isnan(weight):
                         if (v1, v2) not in self.edges:
                             self.edges[(v1, v2)] = []
@@ -490,7 +481,7 @@ class TSPInteractiveGUI:
         self.draw_graph()
 
     def add_vertex_from_matrix(self, vertex_name, x, y):
-        """Добавляет вершину на холст из матрицы."""
+        """Добавляет вершину из матрицы."""
         x1, y1 = x - self.vertex_radius, y - self.vertex_radius
         x2, y2 = x + self.vertex_radius, y + self.vertex_radius
         vertex_id = self.canvas.create_oval(x1, y1, x2, y2, fill=self.vertex_color, outline="black")
@@ -498,4 +489,3 @@ class TSPInteractiveGUI:
 
         self.vertices[vertex_name] = {"x": x, "y": y, "oval_id": vertex_id, "text_id": text_id}
         self.graph.add_node(vertex_name)
-        # self.update_distance_matrix()  # Не обновляем матрицу здесь, только после всех вершин
