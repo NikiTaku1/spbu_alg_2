@@ -18,6 +18,7 @@ class TSPInteractiveGUI:
         self.vertices = {}
         self.edges = {}
         self.edge_objects = {}
+        self.edge_text_objects = {}
         self.start_vertex = None
         self.vertex_radius = 15
         self.edge_line_width = 2
@@ -31,6 +32,7 @@ class TSPInteractiveGUI:
         self.last_edge = None
         self.edge_history = []
 
+        self.selected_edge = None
 
         self.main_frame = ttk.Frame(master)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
@@ -65,7 +67,7 @@ class TSPInteractiveGUI:
         master.columnconfigure(1, weight=2)
 
     def update_distance_matrix(self):
-        """Обновляет отображение матрицы расстояний на основе текущего графа."""
+        """Обновляет отображение матрицы расстояний."""
         self.matrix_text.config(state=tk.NORMAL)
         self.matrix_text.delete("1.0", tk.END)
 
@@ -75,12 +77,14 @@ class TSPInteractiveGUI:
             return
 
         max_vertex_length = max(len(v) for v in vertices)
-        header = " " * (max_vertex_length + 1) + "".join([f"{v:<4}" for v in reversed(vertices)]) + "\n"
+        header = " " * (max_vertex_length + 1) + "".join([f"{v:<4}" for v in vertices]) + "\n"
         self.matrix_text.insert("1.0", header)
 
-        for v1 in vertices:
+        reversed_vertices = list(reversed(vertices))
+
+        for v1 in reversed_vertices:
             row = f"{v1:<{max_vertex_length}} "
-            for v2 in reversed(vertices):
+            for v2 in vertices:
                 try:
                     weight = self.graph[v1][v2]['weight']
                     row += f"{weight:<4}"
@@ -123,6 +127,20 @@ class TSPInteractiveGUI:
         load_matrix_button = ttk.Button(control_frame, text="Загрузить матрицу из таблицы", command=self.load_matrix_from_table)
         load_matrix_button.pack(side=tk.LEFT, padx=5)
 
+        self.edge_weight_frame = ttk.Frame(control_frame)
+        self.edge_weight_frame.pack(side=tk.LEFT, padx=5)
+
+        ttk.Label(self.edge_weight_frame, text="Ребро:").pack(side=tk.LEFT)
+        self.edge_entry = ttk.Entry(self.edge_weight_frame, width=5)
+        self.edge_entry.pack(side=tk.LEFT)
+
+        ttk.Label(self.edge_weight_frame, text="Вес ребра:").pack(side=tk.LEFT)
+        self.edge_weight_entry = ttk.Entry(self.edge_weight_frame, width=5)
+        self.edge_weight_entry.pack(side=tk.LEFT)
+
+        self.update_edge_weight_button = ttk.Button(self.edge_weight_frame, text="Изменить", command=self.update_edge_weight)
+        self.update_edge_weight_button.pack(side=tk.LEFT)
+
     def create_result_frame(self, master):
         result_frame = ttk.LabelFrame(master, text="Результат")
         result_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
@@ -157,10 +175,12 @@ class TSPInteractiveGUI:
                         if (v1, v2) not in self.edges:
                             self.edges[(v1, v2)] = []
                             self.edge_objects[(v1,v2)] = []
+                            self.edge_text_objects[(v1, v2)] = []
                         self.graph.add_edge(v1, v2, weight=weight)
                         self.edges[(v1, v2)].append(weight)
-                        edge_id = self.draw_edge(v1, v2, weight, len(self.edges[(v1, v2)])-1)
+                        edge_id, text_id = self.draw_edge(v1, v2, weight, len(self.edges[(v1, v2)])-1)
                         self.edge_objects[(v1,v2)].append(edge_id)
+                        self.edge_text_objects[(v1, v2)].append(text_id)
                         edge = (v1, v2)
                         self.edge_history.append(edge)
                         self.update_distance_matrix()
@@ -229,7 +249,7 @@ class TSPInteractiveGUI:
 
       text_id = self.canvas.create_text(mid_x , mid_y - 10, text=str(weight), fill="black", font=('Arial', 8))
 
-      return edge_id
+      return edge_id, text_id
 
     def find_closest_vertex(self, x, y, max_distance=20):
         closest_vertex = None
@@ -284,6 +304,10 @@ class TSPInteractiveGUI:
                     for edge_id in self.edge_objects[(v1, v2)]:
                         self.canvas.delete(edge_id)
                     del self.edge_objects[(v1, v2)]
+                if (v1, v2) in self.edge_text_objects:
+                  for text_id in self.edge_text_objects[(v1, v2)]:
+                    self.canvas.delete(text_id)
+                  del self.edge_text_objects[(v1, v2)]
                 if (v1, v2) in self.edges:
                     del self.edges[(v1, v2)]
                 if self.graph.has_edge(v1, v2):
@@ -305,7 +329,9 @@ class TSPInteractiveGUI:
 
         for (v1, v2), weights in self.edges.items():
             for i, weight in enumerate(weights):
-                self.draw_edge(v1,v2, weight, i)
+                edge_id, text_id = self.draw_edge(v1,v2, weight, i)
+                self.edge_objects[(v1,v2)].append(edge_id)
+                self.edge_text_objects[(v1, v2)].append(text_id)
 
         for vertex, data in self.vertices.items():
             x, y = data["x"], data["y"]
@@ -321,6 +347,7 @@ class TSPInteractiveGUI:
         self.vertices.clear()
         self.edges.clear()
         self.edge_objects.clear()
+        self.edge_text_objects.clear()
         self.start_vertex = None
         self.path = None
         self.path_text.config(state=tk.NORMAL)
@@ -335,6 +362,7 @@ class TSPInteractiveGUI:
         graph_copy = self.graph.copy()
         edges_copy = self.edges.copy()
         edge_objects_copy = self.edge_objects.copy()
+        edge_text_objects_copy = self.edge_text_objects.copy()
 
         best_path = None
         min_cost = float('inf')
@@ -360,6 +388,7 @@ class TSPInteractiveGUI:
         self.graph = graph_copy
         self.edges = edges_copy
         self.edge_objects = edge_objects_copy
+        self.edge_text_objects = edge_text_objects_copy
         self.draw_graph()
         self.update_distance_matrix()
 
@@ -408,7 +437,10 @@ class TSPInteractiveGUI:
                   self.canvas.delete(edge_id)
                 if not self.edge_objects[(v1, v2)]:
                   del self.edge_objects[(v1, v2)]
-
+            if (v1, v2) in self.edge_text_objects:
+                for text_id in self.edge_text_objects[(v1,v2)]:
+                    self.canvas.delete(text_id)
+                del self.edge_text_objects[(v1,v2)]
             if (v1, v2) in self.edges:
                 del self.edges[(v1, v2)]
             if self.graph.has_edge(v1, v2):
@@ -456,7 +488,6 @@ class TSPInteractiveGUI:
         """Загружает граф из матрицы расстояний."""
         self.clear_graph()
 
-        vertices = vertices[::-1]
         for vertex in vertices:
             x = random.randint(50, self.canvas_width - 50)
             y = random.randint(50, self.canvas_height - 50)
@@ -470,10 +501,12 @@ class TSPInteractiveGUI:
                         if (v1, v2) not in self.edges:
                             self.edges[(v1, v2)] = []
                             self.edge_objects[(v1,v2)] = []
+                            self.edge_text_objects[(v1, v2)] = []
                         self.graph.add_edge(v1, v2, weight=weight)
                         self.edges[(v1, v2)].append(weight)
-                        edge_id = self.draw_edge(v1, v2, weight, len(self.edges[(v1, v2)])-1)
+                        edge_id, text_id = self.draw_edge(v1, v2, weight, len(self.edges[(v1, v2)])-1)
                         self.edge_objects[(v1,v2)].append(edge_id)
+                        self.edge_text_objects[(v1, v2)].append(text_id)
                         edge = (v1, v2)
                         self.edge_history.append(edge)
 
@@ -489,3 +522,42 @@ class TSPInteractiveGUI:
 
         self.vertices[vertex_name] = {"x": x, "y": y, "oval_id": vertex_id, "text_id": text_id}
         self.graph.add_node(vertex_name)
+
+    def update_edge_weight(self):
+        """Обновляет вес выбранного ребра."""
+        edge_str = self.edge_entry.get().upper()
+        try:
+            v1, v2 = edge_str[0], edge_str[1]
+            if v1 not in self.vertices or v2 not in self.vertices:
+                raise ValueError("Указанная вершина не существует.")
+
+            if (v1, v2) not in self.edges:
+                raise ValueError("Указанное ребро не существует.")
+
+            try:
+                new_weight = int(self.edge_weight_entry.get())
+                if new_weight <= 0:
+                    messagebox.showerror("Ошибка", "Вес должен быть положительным числом.")
+                    return
+            except ValueError:
+                messagebox.showerror("Ошибка", "Пожалуйста, введите целое число для веса.")
+                return
+
+            self.graph[v1][v2]['weight'] = new_weight
+            self.edges[(v1, v2)][0] = new_weight
+            self.update_distance_matrix()
+
+            if (v1, v2) in self.edge_text_objects:
+                for text_id in self.edge_text_objects[(v1, v2)]:
+                    self.canvas.delete(text_id)
+
+            edge_id, text_id = self.draw_edge(v1, v2, new_weight, 0)
+
+            self.edge_objects[(v1, v2)] = [edge_id]
+            self.edge_text_objects[(v1, v2)] = [text_id]
+
+            self.draw_graph()
+            messagebox.showinfo("Информация", "Вес ребра успешно изменен.")
+
+        except ValueError as e:
+            messagebox.showerror("Ошибка", str(e))
