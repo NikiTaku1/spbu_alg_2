@@ -4,7 +4,7 @@ import random
 
 def generate_random_directed_distance_matrix(n, min_distance=1, max_distance=100):
     """
-    Генерирует случайную матрицу расстояний для ориентированного графа (ребра в обе стороны могут быть разными).
+    Генерирует случайную матрицу расстояний для ориентированного графа.
     В формате DataFrame pandas.
 
     Args:
