@@ -38,7 +38,7 @@ class TSPInteractiveGUI:
 
         # Default parameters for Ant Colony
         self.n_ants = 10
-        self.n_iterations = 100
+        self.n_iterations = 1000
         self.alpha = 1.0
         self.beta = 3.0
         self.evaporation_rate = 0.3
@@ -479,7 +479,6 @@ class TSPInteractiveGUI:
         start_time = time.time()
         best_path, best_cost = ant_colony(
             self.graph, 
-            self.start_vertex,
             n_ants=self.n_ants,
             n_iterations=self.n_iterations,
             alpha=self.alpha,

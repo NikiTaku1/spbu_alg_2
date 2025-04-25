@@ -1,6 +1,7 @@
 import random
 import math
 import numpy as np
+from collections import defaultdict
 
 def nearest_neighbor(graph, start_node):
     """Finds the nearest neighbor path."""
@@ -46,9 +47,9 @@ def nearest_neighbor(graph, start_node):
     return path, total_cost
 
 class AntColonyOptimizer:
-    def __init__(self, graph, n_ants=10, n_iterations=100, 
-                 alpha=1.0, beta=2.0, evaporation_rate=0.5, 
-                 q=100, use_templates=False):
+    def __init__(self, graph, n_ants, n_iterations, 
+                 alpha, beta, evaporation_rate, 
+                 q, use_templates, template_update_frequency=10):  # Добавим частоту обновления шаблонов
         self.graph = graph
         self.n_ants = n_ants
         self.n_iterations = n_iterations
@@ -57,6 +58,7 @@ class AntColonyOptimizer:
         self.evaporation_rate = evaporation_rate
         self.q = q  # константа для обновления феромона
         self.use_templates = use_templates
+        self.template_update_frequency = template_update_frequency # Как часто обновлять шаблоны
         
         self.nodes = list(graph.nodes())
         self.n_nodes = len(self.nodes)
@@ -77,27 +79,36 @@ class AntColonyOptimizer:
                     except KeyError:
                         self.distances[i,j] = float('inf')
         
-        # Шаблоны для модификации
-        self.templates = self._generate_templates() if use_templates else None
-    
-    def _generate_templates(self):
-        """Генерирует шаблоны путей для модификации алгоритма."""
-        templates = []
-        
-        # Шаблон 1: ближайший сосед для каждой вершины
-        for start_node in self.nodes:
-            path, _ = nearest_neighbor(self.graph, start_node)
-            if path:
-                templates.append(path)
-        
-        # Шаблон 2: случайные перестановки
-        for _ in range(min(5, self.n_nodes)):
-            path = self.nodes.copy()
-            random.shuffle(path)
-            path.append(path[0])
-            templates.append(path)
-        
-        return templates
+        # Шаблоны для модификации (изначально пустой список)
+        self.templates = [] if use_templates else None  
+        self.edge_counts = defaultdict(int) # Словарь для хранения количества вхождений ребер
+        self.iteration_count = 0
+
+    def _generate_template_from_path(self, path):
+        """Создает шаблон из данного пути."""
+        # Можно добавить логику для фильтрации или упрощения шаблона,
+        # чтобы избежать слишком специфичных шаблонов.
+        return path[:]  # Возвращаем копию пути, чтобы избежать изменений исходного пути
+
+    def _update_templates(self, ants_paths):
+        """Обновляет шаблоны на основе путей, пройденных муравьями."""
+        if not self.use_templates:
+            return
+
+        for path, cost in ants_paths:
+            if cost > 0: # Исключаем невалидные пути
+                # Создаем шаблон из пути
+                new_template = self._generate_template_from_path(path)
+
+                # Добавляем шаблон, если он еще не существует
+                if new_template not in self.templates:
+                    self.templates.append(new_template)
+
+                # Ограничиваем количество шаблонов (опционально)
+                max_templates = 10 # Максимальное количество шаблонов
+                if len(self.templates) > max_templates:
+                    # Удаляем наименее полезный шаблон (здесь - случайный)
+                    self.templates.pop(random.randint(0, len(self.templates) - 1))
     
     def _calculate_path_cost(self, path):
         """Вычисляет стоимость пути."""
@@ -142,20 +153,33 @@ class AntColonyOptimizer:
         return np.random.choice(unvisited, p=probabilities)
     
     def _update_pheromone(self, ants_paths):
-        """Обновляет матрицу феромонов."""
+        """Обновляет матрицу феромонов, учитывая частоту ребер."""
         # Испарение феромона
         self.pheromone *= (1 - self.evaporation_rate)
+
+        # Сброс edge_counts перед каждым обновлением феромонов
+        self.edge_counts.clear()
+
+        # Подсчет вхождений ребер в маршруты
+        for path, _ in ants_paths:
+            for i in range(len(path) - 1):
+                u, v = path[i], path[i + 1]
+                # Учитываем ребро только в одном направлении для ориентированного графа
+                self.edge_counts[(u, v)] += 1
         
         # Добавление нового феромона
         for path, cost in ants_paths:
             if cost == 0:
                 continue
-                
+
             delta_pheromone = self.q / cost
-            for i in range(len(path)-1):
-                u = self.node_indices[path[i]]
-                v = self.node_indices[path[i+1]]
-                self.pheromone[u,v] += delta_pheromone
+            for i in range(len(path) - 1):
+                u, v = path[i], path[i + 1]
+                u_idx, v_idx = self.node_indices[u], self.node_indices[v]
+
+                # Учитываем частоту ребра при обновлении феромона
+                edge_frequency = self.edge_counts[(u, v)]
+                self.pheromone[u_idx, v_idx] += delta_pheromone * (1 + edge_frequency) # Умножаем на (1 + частота)
     
     def _apply_template_modification(self, path):
         """Применяет модификацию шаблонов к пути."""
@@ -184,17 +208,15 @@ class AntColonyOptimizer:
         
         return mixed_path
     
-    def run(self, start_node=None):
+    def run(self):  # Убираем параметр start_node
         """Запускает алгоритм муравьиной колонии."""
-        if start_node is None:
-            start_node = random.choice(self.nodes)
-        elif start_node not in self.nodes:
-            start_node = random.choice(self.nodes)
+        start_node = random.choice(self.nodes) # Выбираем случайную начальную вершину
         
         best_path = None
         best_cost = float('inf')
         
-        for _ in range(self.n_iterations):
+        for i in range(self.n_iterations):
+            self.iteration_count = i
             ants_paths = []
             
             for _ in range(self.n_ants):
@@ -234,22 +256,23 @@ class AntColonyOptimizer:
             
             if ants_paths:
                 self._update_pheromone(ants_paths)
+
+            # Обновляем шаблоны с заданной частотой
+            if self.use_templates and (i + 1) % self.template_update_frequency == 0:
+                self._update_templates(ants_paths)
         
         return best_path, best_cost
 
-def ant_colony(graph, start_node, n_ants=10, n_iterations=100, 
-               alpha=1.0, beta=2.0, evaporation_rate=0.5, 
-               q=100, use_templates=False):
+def ant_colony(graph, n_ants, n_iterations, 
+               alpha, beta, evaporation_rate, 
+               q, use_templates, template_update_frequency=10):
     """Интерфейс для вызова муравьиного алгоритма."""
     if not graph.nodes():
         return None, 0
     
-    if start_node not in graph.nodes():
-        start_node = random.choice(list(graph.nodes()))
-    
     aco = AntColonyOptimizer(graph, n_ants, n_iterations, alpha, beta, 
-                            evaporation_rate, q, use_templates)
-    return aco.run(start_node)
+                            evaporation_rate, q, use_templates, template_update_frequency)
+    return aco.run()  #  Больше не передаем start_node
 
 def calculate_total_cost(graph, path):
     """Calculates path cost, returns None if any edge is missing."""
