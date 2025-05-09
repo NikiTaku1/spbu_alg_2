@@ -1,0 +1,12 @@
+sberbank mastercard 547948
+sberbank visa 427680
+sberbank mir 220220
+tbank mastercard 524468
+tbank visa 437772
+tbank mir 220070
+vtb mastercard 542104
+vtb visa 418868
+vtb mir 220024
+alphabank mastercard 510126
+alphabank visa 410584
+alphabank mir 220215
