@@ -43,12 +43,22 @@ def reverse_mappings(df, mappings):
 
 
 def inject_missing_values(df, percent, cols_to_modify):
-    """Injects missing values as NaN into the specified columns."""
+    """Injects missing values as NaN into the specified columns in blocks."""
     df_missing = df.copy()
     for col in cols_to_modify:
         num_missing = int(len(df) * percent)
-        indices = random.sample(range(len(df)), num_missing)
-        df_missing.loc[indices, col] = np.nan  # Introduce NaN
+        total_missing_injected = 0
+        while total_missing_injected < num_missing:
+            block_size = random.randint(2, min(8, len(df) - total_missing_injected))  # Ensure block doesn't exceed remaining rows
+            start_index = random.randint(0, len(df) - block_size)
+
+            # Check if injecting the block will exceed the desired number of NaNs
+            if total_missing_injected + block_size > num_missing:
+                block_size = num_missing - total_missing_injected  # Adjust block size to match remaining NaNs
+
+            df_missing.loc[start_index:start_index + block_size - 1, col] = np.nan
+            total_missing_injected += block_size
+
     return df_missing
 
 
