@@ -61,7 +61,6 @@ def preprocess_data(df, anonymized=False):
         X = np.hstack([scaled_num, encoded_cat])
         return X, scaler, encoder, num_cols, cat_cols
     else:
-        # При анонимизации все признаки (кроме Target) — категориальные
         cat_cols = df.columns.drop('Target')
 
         try:
@@ -101,7 +100,7 @@ def select_informative_features(df_num, top_n=10):
     return spread.sort_values(ascending=False).head(top_n).index.tolist()
 
 # ---------- Анонимизация с округлением числовых и смысловым обобщением категориальных ----------
-def k_anonymize_round_generalize(df, k=5, text_output=None):
+def anonymize(df, k=5, text_output=None):
     df_anon = df.copy()
     num_cols = df_anon.select_dtypes(include=[np.number]).columns.drop('Target')
     cat_cols = df_anon.select_dtypes(include=['object', 'category']).columns
@@ -164,13 +163,12 @@ def cluster_and_plot(data, label, text_output, color='tab10'):
     labels, centers = maximin_clustering(data, k=current_k)
 
     n_features = data.shape[1]
-    n_components = 2 if n_features >= 2 else n_features  # если 1 признак — n_components=1
+    n_components = 2 if n_features >= 2 else n_features 
 
     reduced = PCA(n_components=n_components).fit_transform(data)
 
     fig, ax = plt.subplots()
     if n_components == 1:
-        # Отобразим точки на 1D-оси (ось X), ось Y заполнить нулями
         ax.scatter(reduced[:, 0], np.zeros_like(reduced[:, 0]), c=labels, cmap=color)
         ax.set_ylim(-1, 1)
     else:
@@ -184,7 +182,6 @@ def cluster_and_plot(data, label, text_output, color='tab10'):
 def process_clustering():
     text_output.delete(1.0, tk.END)
 
-    # Число информативных признаков
     try:
         top_n = int(entry_top_n.get())
         if top_n < 1:
@@ -193,7 +190,6 @@ def process_clustering():
         text_output.insert(tk.END, "Некорректное число информативных признаков, используется значение по умолчанию 10\n")
         top_n = 10
 
-    # Кол-во кластеров
     global current_k
     try:
         current_k = int(entry_clusters.get())
@@ -203,7 +199,6 @@ def process_clustering():
         text_output.insert(tk.END, "Некорректное число кластеров, используется значение по умолчанию 5\n")
         current_k = 5
 
-    # Размер датасета
     try:
         n_samples = int(entry_samples.get())
         if n_samples < 10:
@@ -229,7 +224,7 @@ def process_clustering():
     text_output.insert(tk.END, f"Информативные числовые признаки ({top_n}): {', '.join(top_num_features)}\n")
 
     scaled_top_num = scaler.fit_transform(df[top_num_features])
-    X_top = scaled_top_num  # Только числовые информативные признаки, без категориальных
+    X_top = scaled_top_num
 
     df_top = pd.concat([df[top_num_features], df['Target']], axis=1)
     df_top.to_csv('dataset_top_features.csv', index=False)
@@ -239,7 +234,7 @@ def process_clustering():
     rand_top = adjusted_rand_score(y_true, labels_top)
     text_output.insert(tk.END, f"Индекс Ранда: {rand_top:.3f}\n\n")
 
-    df_anon, k_anon_val = k_anonymize_round_generalize(df_top, k=5)
+    df_anon, k_anon_val = anonymize(df_top, k=5)
     df_anon.to_csv('dataset_k_anonymized.csv', index=False)
     text_output.insert(tk.END, f"Сохранён обезличенный датасет: dataset_k_anonymized.csv\n")
     text_output.insert(tk.END, f"Показатель k-анонимности: {k_anon_val}\n\n")
@@ -247,7 +242,7 @@ def process_clustering():
     X_anon, _, _, _, _ = preprocess_data(df_anon, anonymized=True)
 
     text_output.insert(tk.END, "Кластеризация по обезличенным данным...\n")
-    labels_anon = cluster_and_plot(X_anon, "Кластеры (k-анонимность)", text_output)
+    labels_anon = cluster_and_plot(X_anon, "Кластеры (анонимизация)", text_output)
     rand_anon = adjusted_rand_score(y_true, labels_anon)
     text_output.insert(tk.END, f"Индекс Ранда: {rand_anon:.3f}\n\n")
 
@@ -292,6 +287,6 @@ btn.pack(pady=10)
 text_output = tk.Text(frame, height=25, width=85, font=("Courier", 10))
 text_output.pack()
 
-current_k = 5  # Значение по умолчанию для кластеров
+current_k = 5
 
 root.mainloop()
