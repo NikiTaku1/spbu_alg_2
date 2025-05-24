@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.decomposition import PCA
-from sklearn.metrics import adjusted_rand_score
+from sklearn.metrics import rand_score
 from sklearn.datasets import make_blobs
 from scipy.spatial.distance import cdist
 
@@ -30,7 +30,6 @@ def generate_dataset(n_samples=300, n_num_features=12, n_cat_features=5, n_clust
         'Texture': ['Smooth', 'Rough', 'Matte', 'Glossy']
     }
 
-    # Берём ровно n_cat_features из словаря
     cat_keys = list(cat_feature_values.keys())[:n_cat_features]
     df_cat = pd.DataFrame({
         key: np.random.choice(cat_feature_values[key], size=n_samples)
@@ -129,30 +128,30 @@ def anonymize(df, k=5, text_output=None):
     freq = quasi_id.value_counts()
     k_anon = freq.min()
 
-    if text_output:
-        text_output.insert(tk.END, f"Минимальная частота квази-идентификаторов после обобщения: {k_anon}\n")
-        rare_ids = freq[freq < k].index.tolist()
-        if rare_ids:
-            text_output.insert(tk.END, f"Количество уникальных (меньше k) квази-идентификаторов: {len(rare_ids)}\n")
-        else:
-            text_output.insert(tk.END, "Все квази-идентификаторы имеют частоту >= k\n")
+    #if text_output:
+    #    text_output.insert(tk.END, f"Минимальная частота квази-идентификаторов после обобщения: {k_anon}\n")
+    #    rare_ids = freq[freq < k].index.tolist()
+    #    if rare_ids:
+    #        text_output.insert(tk.END, f"Количество уникальных (меньше k) квази-идентификаторов: {len(rare_ids)}\n")
+    #    else:
+    #        text_output.insert(tk.END, "Все квази-идентификаторы имеют частоту >= k\n")
 
         # --- Новый вывод: частоты всех уникальных строк ---
-        text_output.insert(tk.END, "\nЧастоты всех уникальных строк:\n")
-        for row_val, count in freq.items():
-            text_output.insert(tk.END, f"{row_val} : {count}\n")
+    #    text_output.insert(tk.END, "\nЧастоты всех уникальных строк:\n")
+    #    for row_val, count in freq.items():
+    #        text_output.insert(tk.END, f"{row_val} : {count}\n")
 
-    else:
-        print(f"Минимальная частота квази-идентификаторов после обобщения: {k_anon}")
-        rare_ids = freq[freq < k].index.tolist()
-        if rare_ids:
-            print(f"❗ Количество уникальных (меньше k) квази-идентификаторов: {len(rare_ids)}")
-        else:
-            print("Все квази-идентификаторы имеют частоту >= k")
+    #else:
+    #    print(f"Минимальная частота квази-идентификаторов после обобщения: {k_anon}")
+    #    rare_ids = freq[freq < k].index.tolist()
+    #    if rare_ids:
+    #        print(f" Количество уникальных (меньше k) квази-идентификаторов: {len(rare_ids)}")
+    #    else:
+    #        print("Все квази-идентификаторы имеют частоту >= k")
 
-        print("\nЧастоты всех уникальных строк:")
-        for row_val, count in freq.items():
-            print(f"{row_val} : {count}")
+    #    print("\nЧастоты всех уникальных строк:")
+    #    for row_val, count in freq.items():
+    #        print(f"{row_val} : {count}")
 
     return df_anon, k_anon
 
@@ -217,7 +216,8 @@ def process_clustering():
 
     text_output.insert(tk.END, "Кластеризация по всем признакам...\n")
     labels_all = cluster_and_plot(X_full, "Кластеры (все признаки)", text_output)
-    rand_all = adjusted_rand_score(y_true, labels_all)
+    rand_all = rand_score(y_true, labels_all)
+
     text_output.insert(tk.END, f"Индекс Ранда: {rand_all:.3f}\n\n")
 
     top_num_features = select_informative_features(df[num_cols], top_n=top_n)
@@ -231,25 +231,38 @@ def process_clustering():
     text_output.insert(tk.END, "Сохранён датасет с информативными признаками: dataset_top_features.csv\n\n")
 
     labels_top = cluster_and_plot(X_top, "Кластеры (информативные признаки)", text_output)
-    rand_top = adjusted_rand_score(y_true, labels_top)
+    rand_top = rand_score(y_true, labels_top)
     text_output.insert(tk.END, f"Индекс Ранда: {rand_top:.3f}\n\n")
 
-    df_anon, k_anon_val = anonymize(df_top, k=5)
-    df_anon.to_csv('dataset_k_anonymized.csv', index=False)
-    text_output.insert(tk.END, f"Сохранён обезличенный датасет: dataset_k_anonymized.csv\n")
-    text_output.insert(tk.END, f"Показатель k-анонимности: {k_anon_val}\n\n")
+    df_anon1, k_anon_val1 = anonymize(df, k=5)
+    df_anon1.to_csv('dataset_k_anonymized.csv', index=False)
+    text_output.insert(tk.END, f"Сохранён обезличенный датасет: dataset_anonymized_orig.csv\n")
+    text_output.insert(tk.END, f"Показатель k-анонимности: {k_anon_val1}\n\n")
 
-    X_anon, _, _, _, _ = preprocess_data(df_anon, anonymized=True)
+    X_anon1, _, _, _, _ = preprocess_data(df_anon1, anonymized=True)
+
+    text_output.insert(tk.END, "Кластеризация по обезличенным данным всего датасета...\n")
+    labels_anon1 = cluster_and_plot(X_anon1, "Кластеры (анонимизация всего датасета)", text_output)
+    rand_anon1 = rand_score(y_true, labels_anon1)
+    text_output.insert(tk.END, f"Индекс Ранда: {rand_anon1:.3f}\n\n")
+
+    df_anon2, k_anon_val2 = anonymize(df_top, k=5)
+    df_anon2.to_csv('dataset_k_anonymized.csv', index=False)
+    text_output.insert(tk.END, f"Сохранён обезличенный датасет: dataset_anonymized_mod.csv\n")
+    text_output.insert(tk.END, f"Показатель k-анонимности: {k_anon_val2}\n\n")
+
+    X_anon2, _, _, _, _ = preprocess_data(df_anon2, anonymized=True)
 
     text_output.insert(tk.END, "Кластеризация по обезличенным данным...\n")
-    labels_anon = cluster_and_plot(X_anon, "Кластеры (анонимизация)", text_output)
-    rand_anon = adjusted_rand_score(y_true, labels_anon)
-    text_output.insert(tk.END, f"Индекс Ранда: {rand_anon:.3f}\n\n")
+    labels_anon2 = cluster_and_plot(X_anon2, "Кластеры (анонимизация для измененного датасета)", text_output)
+    rand_anon2 = rand_score(y_true, labels_anon2)
+    text_output.insert(tk.END, f"Индекс Ранда: {rand_anon2:.3f}\n\n")
 
     text_output.insert(tk.END, "Сравнение:\n")
     text_output.insert(tk.END, f"- Все признаки:     {rand_all:.3f}\n")
     text_output.insert(tk.END, f"- Информативные:    {rand_top:.3f}\n")
-    text_output.insert(tk.END, f"- k-анонимность:    {rand_anon:.3f}\n")
+    text_output.insert(tk.END, f"- Обезличенный (весь):     {rand_anon1:.3f}\n")
+    text_output.insert(tk.END, f"- Обезличенный (изм):     {rand_anon2:.3f}\n")
 
 # ---------- GUI ----------
 root = tk.Tk()
